@@ -14,15 +14,8 @@ import { ObjectIndex } from '@/serialization/objectIndex'
 import { LightFactory } from './objects/LightFactory'
 import { ObjectFactory, buildMaterial } from './objects/ObjectFactory'
 
-export interface Tickable {
-  uuid: string
-  tick(delta: number): void
-}
-
-export interface AnimationLoopLike {
-  register(tickable: Tickable): void
-  unregister(uuid: string): void
-}
+export type { AnimationLoopLike, Tickable } from './AnimationLoop'
+import type { AnimationLoopLike, Tickable } from './AnimationLoop'
 
 export interface SceneControllerOptions {
   scene: THREE.Scene
