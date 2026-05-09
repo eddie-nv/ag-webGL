@@ -27,8 +27,8 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["agent*"]
-exclude = ["frontend*", "shared*", "node_modules*"]
+include = ["agent*", "shared*"]
+exclude = ["frontend*", "node_modules*"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

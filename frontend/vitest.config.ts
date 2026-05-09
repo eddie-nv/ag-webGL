@@ -23,6 +23,16 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
+      '@shared': path.resolve(__dirname, '../shared'),
+      // shared/ lives outside frontend/, so its `import { z } from 'zod'` can't
+      // resolve via node walk-up. Pin zod to frontend/node_modules.
+      zod: path.resolve(__dirname, 'node_modules/zod'),
+    },
+  },
+  server: {
+    fs: {
+      // Allow Vite to read files in the parent dir (shared/).
+      allow: ['..'],
     },
   },
 })
