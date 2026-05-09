@@ -14,4 +14,7 @@ const handler = copilotRuntimeNextJSAppRouterEndpoint({
   endpoint: '/api/copilotkit',
 })
 
+// Optional catch-all so /api/copilotkit AND /api/copilotkit/threads (and any
+// other subpath CopilotKit's runtime serves) all funnel through handleRequest.
+export const GET = handler.handleRequest
 export const POST = handler.handleRequest

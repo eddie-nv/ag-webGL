@@ -5,6 +5,7 @@ import * as THREE from 'three'
 
 import { ActiveWindow } from '@/serialization/activeWindow'
 import { ObjectIndex } from '@/serialization/objectIndex'
+import { exposeSceneRefs, sceneLog } from '@/lib/debug'
 import { useSceneActions } from '@/hooks/useSceneActions'
 import { useSceneReadable } from '@/hooks/useSceneReadable'
 
@@ -71,6 +72,13 @@ export function SceneCanvas() {
     resize()
     container.appendChild(renderer.domElement)
     window.addEventListener('resize', resize)
+
+    sceneLog('canvas mounted', `${container.clientWidth}x${container.clientHeight}`)
+    exposeSceneRefs({
+      controller: setup.controller,
+      scene: setup.scene,
+      camera: setup.camera,
+    })
 
     setup.loop.start(renderer, setup.scene, setup.camera)
 

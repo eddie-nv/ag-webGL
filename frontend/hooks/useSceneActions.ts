@@ -17,6 +17,7 @@ import {
   SCENE_OBJECT_ADD,
   SCENE_OBJECT_UPDATE,
 } from '@/lib/agui/customEventTypes'
+import { recordEvent, sceneLog, sceneWarn } from '@/lib/debug'
 import type { SceneController } from '@/components/scene/SceneController'
 
 export interface RouterContext {
@@ -36,6 +37,9 @@ export interface RawSceneEvent {
  * canvas.
  */
 export function routeSceneEvent(event: RawSceneEvent, ctx: RouterContext): void {
+  sceneLog('event in:', event.name, event.value)
+  recordEvent(event.name, event.value)
+
   switch (event.name) {
     case SCENE_OBJECT_ADD: {
       const parsed = ObjectAddSchema.safeParse(event.value)
@@ -43,6 +47,7 @@ export function routeSceneEvent(event: RawSceneEvent, ctx: RouterContext): void 
         warn(event.name, parsed.error.message)
         return
       }
+      sceneLog('-> controller.addObject', parsed.data.uuid, parsed.data.label)
       ctx.controller.addObject(parsed.data)
       return
     }
@@ -53,6 +58,7 @@ export function routeSceneEvent(event: RawSceneEvent, ctx: RouterContext): void 
         return
       }
       const { uuid, ...updates } = parsed.data
+      sceneLog('-> controller.updateObject', uuid, updates)
       ctx.controller.updateObject(uuid, updates)
       return
     }
@@ -62,6 +68,7 @@ export function routeSceneEvent(event: RawSceneEvent, ctx: RouterContext): void 
         warn(event.name, parsed.error.message)
         return
       }
+      sceneLog('-> controller.moveCamera', parsed.data)
       ctx.controller.moveCamera(parsed.data, ctx.camera)
       return
     }
@@ -71,6 +78,7 @@ export function routeSceneEvent(event: RawSceneEvent, ctx: RouterContext): void 
         warn(event.name, parsed.error.message)
         return
       }
+      sceneLog('-> controller.addLight', parsed.data.uuid, parsed.data.lightType)
       ctx.controller.addLight(parsed.data)
       return
     }
@@ -80,6 +88,7 @@ export function routeSceneEvent(event: RawSceneEvent, ctx: RouterContext): void 
         warn(event.name, parsed.error.message)
         return
       }
+      sceneLog('-> controller.startAnimation', parsed.data.uuid)
       ctx.controller.startAnimation(parsed.data)
       return
     }
@@ -89,16 +98,18 @@ export function routeSceneEvent(event: RawSceneEvent, ctx: RouterContext): void 
         warn(event.name, parsed.error.message)
         return
       }
+      sceneLog('-> controller.stopAnimation', parsed.data.uuid)
       ctx.controller.stopAnimation(parsed.data)
       return
     }
     default:
+      sceneWarn('unhandled event name:', event.name)
       return
   }
 }
 
 function warn(eventName: string, detail: string): void {
-  console.warn(`[useSceneActions] invalid ${eventName} payload: ${detail}`)
+  sceneWarn(`invalid ${eventName} payload:`, detail)
 }
 
 const PAYLOAD_PARAM = [

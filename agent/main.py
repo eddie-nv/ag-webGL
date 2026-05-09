@@ -11,8 +11,10 @@ Run with:
 
 from __future__ import annotations
 
+import logging
 import os
 import time
+import traceback
 import uuid
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -37,6 +39,12 @@ from agent.store.scene_store import SceneStore
 # Auto-load .env at the project root.
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(_PROJECT_ROOT / ".env")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+log = logging.getLogger("scene")
 
 app = FastAPI(title="scene-agent-system")
 
@@ -73,11 +81,14 @@ async def _stream_pipeline(payload: dict[str, Any]) -> AsyncIterator[str]:
     run_id = payload.get("runId") or str(uuid.uuid4())
     user_prompt = _extract_user_prompt(payload)
 
+    log.info("run start thread=%s run=%s prompt=%r", thread_id, run_id, user_prompt[:120])
+
     yield encoder.encode(
         RunStartedEvent(threadId=thread_id, runId=run_id, timestamp=_now_ms())
     )
 
     if not user_prompt:
+        log.warning("empty user_prompt; payload keys=%s", list(payload.keys()))
         message_id = str(uuid.uuid4())
         yield encoder.encode(TextMessageStartEvent(messageId=message_id, role="assistant"))
         yield encoder.encode(
@@ -103,9 +114,21 @@ async def _stream_pipeline(payload: dict[str, Any]) -> AsyncIterator[str]:
             raise RuntimeError("ANTHROPIC_API_KEY not set on the agent server")
 
         store = SceneStore()
+        t0 = time.time()
         events = run_pipeline(user_prompt, store, AnthropicLLM())
+        elapsed = time.time() - t0
+        counts: dict[str, int] = {}
+        for e in events:
+            counts[e.name] = counts.get(e.name, 0) + 1
+        log.info(
+            "pipeline ok elapsed=%.1fs total=%d %s",
+            elapsed,
+            len(events),
+            ", ".join(f"{k}={v}" for k, v in sorted(counts.items())),
+        )
 
         for event in events:
+            log.debug("emit %s value_keys=%s", event.name, list(event.value.keys()))
             yield encoder.encode(
                 CustomEvent(name=event.name, value=event.value, timestamp=_now_ms())
             )
@@ -117,6 +140,7 @@ async def _stream_pipeline(payload: dict[str, Any]) -> AsyncIterator[str]:
             )
         )
     except Exception as exc:
+        log.error("pipeline failed: %s\n%s", exc, traceback.format_exc())
         yield encoder.encode(
             TextMessageContentEvent(
                 messageId=message_id, delta=f" Pipeline failed: {exc}"
@@ -132,6 +156,11 @@ async def _stream_pipeline(payload: dict[str, Any]) -> AsyncIterator[str]:
 @app.post("/agui")
 async def agui(request: Request) -> StreamingResponse:
     payload = await request.json()
+    log.info(
+        "POST /agui keys=%s message_count=%d",
+        list(payload.keys()),
+        len(payload.get("messages", [])),
+    )
     return StreamingResponse(
         _stream_pipeline(payload),
         media_type="text/event-stream",
