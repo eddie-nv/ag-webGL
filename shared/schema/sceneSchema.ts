@@ -32,6 +32,11 @@ export const ObjectUpdateSchema = z.object({
 })
 export type ObjectUpdatePayload = z.infer<typeof ObjectUpdateSchema>
 
+export const ObjectRemoveSchema = z.object({
+  uuid: z.string(),
+})
+export type ObjectRemovePayload = z.infer<typeof ObjectRemoveSchema>
+
 export const CameraMoveSchema = z.object({
   position: Vec3Schema,
   target: Vec3Schema,

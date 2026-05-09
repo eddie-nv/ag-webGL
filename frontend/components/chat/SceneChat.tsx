@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { routeSceneEvent } from '@/hooks/useSceneActions'
 import { sceneLog, sceneWarn } from '@/lib/debug'
-import type { SceneSetup } from '@/lib/sceneSetup'
+import { buildSceneSnapshot, type SceneSetup } from '@/lib/sceneSetup'
 
 interface Props {
   setup: SceneSetup
@@ -50,7 +50,11 @@ export function SceneChat({ setup }: Props) {
     setMessages((m) => [...m, { id: localId(), role: 'user', content: prompt }])
 
     try {
-      await streamPipeline(prompt, (event) => handleEvent(event, setup, setMessages))
+      const snapshot = buildSceneSnapshot(setup)
+      sceneLog('snapshot:', snapshot.objects.length, 'objects,', snapshot.lights.length, 'lights')
+      await streamPipeline(prompt, snapshot, (event) =>
+        handleEvent(event, setup, setMessages),
+      )
     } catch (err) {
       sceneWarn('chat failed:', err)
       setMessages((m) => [
@@ -112,12 +116,14 @@ export function SceneChat({ setup }: Props) {
 
 async function streamPipeline(
   prompt: string,
+  sceneSnapshot: ReturnType<typeof buildSceneSnapshot>,
   onEvent: (e: AGUIEvent) => void,
 ): Promise<void> {
   const body = JSON.stringify({
     threadId: crypto.randomUUID(),
     runId: crypto.randomUUID(),
     messages: [{ role: 'user', content: prompt }],
+    sceneSnapshot,
   })
   const res = await fetch('/api/agui', {
     method: 'POST',

@@ -4,19 +4,26 @@ import type {
   CameraMovePayload,
   LightAddPayload,
   ObjectAddPayload,
+  ObjectRemovePayload,
   ObjectUpdatePayload,
 } from '@shared/schema/sceneSchema'
 
 export const SCENE_OBJECT_ADD = 'scene:object_add' as const
 export const SCENE_OBJECT_UPDATE = 'scene:object_update' as const
+export const SCENE_OBJECT_REMOVE = 'scene:object_remove' as const
 export const SCENE_CAMERA_MOVE = 'scene:camera_move' as const
 export const SCENE_LIGHT_ADD = 'scene:light_add' as const
 export const SCENE_ANIMATION_START = 'scene:animation_start' as const
 export const SCENE_ANIMATION_STOP = 'scene:animation_stop' as const
 
+// Convention: a scene:animation_start event with this uuid targets the camera
+// (orbit around its current lookAt) instead of an object in the scene.
+export const CAMERA_ANIMATION_UUID = 'camera' as const
+
 export type SceneEventName =
   | typeof SCENE_OBJECT_ADD
   | typeof SCENE_OBJECT_UPDATE
+  | typeof SCENE_OBJECT_REMOVE
   | typeof SCENE_CAMERA_MOVE
   | typeof SCENE_LIGHT_ADD
   | typeof SCENE_ANIMATION_START
@@ -30,6 +37,11 @@ export interface SceneObjectAddEvent {
 export interface SceneObjectUpdateEvent {
   name: typeof SCENE_OBJECT_UPDATE
   value: ObjectUpdatePayload
+}
+
+export interface SceneObjectRemoveEvent {
+  name: typeof SCENE_OBJECT_REMOVE
+  value: ObjectRemovePayload
 }
 
 export interface SceneCameraMoveEvent {
@@ -55,6 +67,7 @@ export interface SceneAnimationStopEvent {
 export type SceneEvent =
   | SceneObjectAddEvent
   | SceneObjectUpdateEvent
+  | SceneObjectRemoveEvent
   | SceneCameraMoveEvent
   | SceneLightAddEvent
   | SceneAnimationStartEvent
@@ -66,5 +79,6 @@ export type {
   CameraMovePayload,
   LightAddPayload,
   ObjectAddPayload,
+  ObjectRemovePayload,
   ObjectUpdatePayload,
 }

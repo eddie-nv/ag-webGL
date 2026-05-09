@@ -14,6 +14,7 @@ from agent.events.vocabulary import (
     SCENE_CAMERA_MOVE,
     SCENE_LIGHT_ADD,
     SCENE_OBJECT_ADD,
+    SCENE_OBJECT_REMOVE,
     SCENE_OBJECT_UPDATE,
 )
 from shared.schema.sceneSchema import (
@@ -22,6 +23,7 @@ from shared.schema.sceneSchema import (
     CameraMovePayload,
     LightAddPayload,
     ObjectAddPayload,
+    ObjectRemovePayload,
     ObjectUpdatePayload,
 )
 
@@ -37,6 +39,13 @@ def make_object_update(payload: ObjectUpdatePayload) -> CustomEvent:
     return CustomEvent(
         name=SCENE_OBJECT_UPDATE,
         value=payload.model_dump(exclude_none=True),
+    )
+
+
+def make_object_remove(payload: ObjectRemovePayload) -> CustomEvent:
+    return CustomEvent(
+        name=SCENE_OBJECT_REMOVE,
+        value=payload.model_dump(),
     )
 
 

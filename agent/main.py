@@ -85,6 +85,28 @@ def _extract_user_prompt(payload: dict[str, Any]) -> str:
     return ""
 
 
+def _hydrate_store_from_snapshot(
+    store: SceneStore, snapshot: dict[str, Any] | None
+) -> int:
+    """Populate the store with the frontend's current scene state so the
+    Director / Asset / Animation agents can reason about existing objects.
+
+    Returns the number of objects hydrated for logging.
+    """
+    if not snapshot:
+        return 0
+    objects = snapshot.get("objects") or []
+    for obj in objects:
+        target_uuid = obj.get("uuid")
+        if not target_uuid:
+            continue
+        store.write_object(target_uuid, obj)
+    camera = snapshot.get("camera")
+    if isinstance(camera, dict):
+        store.write_camera(camera)
+    return len(objects)
+
+
 def _now_ms() -> int:
     return int(time.time() * 1000)
 
@@ -151,6 +173,9 @@ async def _stream_pipeline(payload: dict[str, Any]) -> AsyncIterator[str]:
             raise RuntimeError("ANTHROPIC_API_KEY not set on the agent server")
 
         store = SceneStore()
+        snapshot_count = _hydrate_store_from_snapshot(store, payload.get("sceneSnapshot"))
+        if snapshot_count:
+            log.info("hydrated store from snapshot: %d objects", snapshot_count)
         model = AnthropicLLM()
         t0 = time.time()
         counts: dict[str, int] = {}

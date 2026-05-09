@@ -26,7 +26,7 @@ function buildCtx(): RouterContext {
   const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100)
   const objectIndex = new ObjectIndex()
   const activeWindow = new ActiveWindow()
-  const controller = new SceneController({ scene, objectIndex, activeWindow })
+  const controller = new SceneController({ scene, camera, objectIndex, activeWindow })
   return { controller, camera }
 }
 
@@ -86,7 +86,20 @@ describe('routeSceneEvent', () => {
     routeSceneEvent({ name: SCENE_CAMERA_MOVE, value: validCameraMove }, ctx)
 
     expect(spy).toHaveBeenCalledTimes(1)
-    expect(spy.mock.calls[0][1]).toBe(ctx.camera)
+    expect(spy.mock.calls[0][0]).toEqual(validCameraMove)
+  })
+
+  it('scene:object_remove calls controller.removeObject', () => {
+    const ctx = buildCtx()
+    ctx.controller.addObject(validObjectAdd)
+    const spy = vi.spyOn(ctx.controller, 'removeObject')
+
+    routeSceneEvent(
+      { name: 'scene:object_remove', value: { uuid: 'u1' } },
+      ctx,
+    )
+
+    expect(spy).toHaveBeenCalledWith('u1')
   })
 
   it('scene:light_add calls controller.addLight', () => {

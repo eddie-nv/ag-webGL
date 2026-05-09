@@ -38,6 +38,10 @@ class ObjectUpdatePayload(BaseModel):
     material: Material | None = None
 
 
+class ObjectRemovePayload(BaseModel):
+    uuid: str
+
+
 class CameraMovePayload(BaseModel):
     position: Vec3
     target: Vec3

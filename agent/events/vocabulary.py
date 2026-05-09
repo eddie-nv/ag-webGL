@@ -14,6 +14,9 @@ SCENE_OBJECT_UPDATE = "scene:object_update"
 # required: uuid
 # optional: position, rotation, scale, material
 
+SCENE_OBJECT_REMOVE = "scene:object_remove"
+# required: uuid
+
 SCENE_CAMERA_MOVE = "scene:camera_move"
 # required: position[x,y,z], target[x,y,z]
 # optional: fov

@@ -70,7 +70,7 @@ def test_run_animation_skips_when_single_stage() -> None:
     result = run_animation(store)
 
     assert result.events == []
-    assert "single-stage" in result.narration
+    assert "static" in result.narration or "skipped" in result.narration
 
 
 def test_run_animation_no_brief_skips() -> None:
@@ -80,8 +80,44 @@ def test_run_animation_no_brief_skips() -> None:
 
 
 def test_run_animation_empty_manifest_with_valid_brief() -> None:
+    """animate=True + multi-stage but no objects in the manifest -- nothing
+    to animate, narration just says skipped."""
     store = SceneStore()
     store.write_brief(_animated_brief(["s1", "s2"], animate=True))
     result = run_animation(store)
     assert result.events == []
-    assert "empty manifest" in result.narration
+    assert "skipped" in result.narration
+
+
+def test_run_animation_emits_camera_spin_when_action_set() -> None:
+    """`cameraAction.spin: true` emits a scene:animation_start with the
+    sentinel uuid='camera' so the SceneController orbits the camera."""
+    store = SceneStore()
+    brief = _animated_brief(["only"], animate=False)
+    brief["cameraAction"] = {"spin": True}
+    store.write_brief(brief)
+
+    result = run_animation(store)
+
+    camera_events = [e for e in result.events if e.value["uuid"] == "camera"]
+    assert len(camera_events) == 1
+    assert camera_events[0].name == "scene:animation_start"
+    assert "camera spinning" in result.narration
+
+
+def test_run_animation_camera_spin_plus_object_rotate() -> None:
+    """Camera spin and object rotation can coexist in a multi-stage,
+    animate=True brief."""
+    store = SceneStore()
+    brief = _animated_brief(["s1", "s2"], animate=True)
+    brief["cameraAction"] = {"spin": True}
+    store.write_brief(brief)
+    store.write_object("u1", {"label": "seed"})
+    store.write_object("u2", {"label": "stem"})
+
+    result = run_animation(store)
+
+    uuids = {e.value["uuid"] for e in result.events}
+    assert uuids == {"camera", "u1", "u2"}
+    assert "camera spinning" in result.narration
+    assert "rotating 2 objects" in result.narration

@@ -1,9 +1,17 @@
-"""Animation agent: emits a scene:animation_start per object in the manifest.
+"""Animation agent: emits scene:animation_start events.
 
-V1 applies a slow y-axis rotation to every object IF the brief opted in via
-`brief.animate` AND the brief has more than one stage (single-stage scenes
-are static by default -- "make a blue cube" should not spin).
-Per-object animation selection (grow, drift, oscillate, ...) is v2.
+Two animation paths in v1:
+
+1. Camera spin -- if `brief.cameraAction.spin` is True, emit one event with
+   `uuid="camera"`. SceneController recognises the magic uuid and registers
+   a camera-orbit Tickable instead of an object Tickable.
+
+2. Object rotation -- if `brief.animate` is True AND the brief is multi-stage,
+   emit one rotate Tickable per object in the manifest. Single-stage scenes
+   ("make a blue cube") stay static even with animate=True so the user
+   doesn't see things spinning unexpectedly.
+
+Per-object animation selection (grow / drift / oscillate) is v2.
 """
 
 from __future__ import annotations
@@ -14,6 +22,8 @@ from agent.store.scene_store import SceneStore
 from shared.schema.sceneSchema import AnimationStartPayload
 
 DEFAULT_ROTATION_DURATION = 6.0
+CAMERA_ORBIT_DURATION = 12.0
+CAMERA_UUID = "camera"
 
 
 def run_animation(store: SceneStore) -> AgentResult:
@@ -22,27 +32,42 @@ def run_animation(store: SceneStore) -> AgentResult:
         return AgentResult(narration="animation: skipped (no brief)")
 
     brief = Brief.model_validate(raw)
-    if not brief.animate:
-        return AgentResult(narration="animation: skipped (static scene)")
-    if len(brief.stages) <= 1:
-        return AgentResult(narration="animation: skipped (single-stage scene)")
+    events = []
+    parts: list[str] = []
 
-    manifest = store.get_manifest()
-    events = [
-        make_animation_start(
-            AnimationStartPayload(
-                uuid=obj_uuid,
-                animationType="rotate",
-                duration=DEFAULT_ROTATION_DURATION,
-                axis="y",
-                loop=True,
+    # Camera spin (independent of object animation)
+    if brief.cameraAction and brief.cameraAction.spin:
+        events.append(
+            make_animation_start(
+                AnimationStartPayload(
+                    uuid=CAMERA_UUID,
+                    animationType="rotate",
+                    duration=CAMERA_ORBIT_DURATION,
+                    axis="y",
+                    loop=True,
+                )
             )
         )
-        for obj_uuid in manifest
-    ]
-    narration = (
-        f"animation: rotating {len(events)} object{'s' if len(events) != 1 else ''}"
-        if events
-        else "animation: nothing to animate (empty manifest)"
-    )
-    return AgentResult(events=events, narration=narration)
+        parts.append("camera spinning")
+
+    # Object rotation only when explicitly requested AND multi-stage.
+    if brief.animate and len(brief.stages) > 1:
+        manifest = store.get_manifest()
+        for obj_uuid in manifest:
+            events.append(
+                make_animation_start(
+                    AnimationStartPayload(
+                        uuid=obj_uuid,
+                        animationType="rotate",
+                        duration=DEFAULT_ROTATION_DURATION,
+                        axis="y",
+                        loop=True,
+                    )
+                )
+            )
+        if manifest:
+            parts.append(f"rotating {len(manifest)} objects")
+
+    if not parts:
+        return AgentResult(events=[], narration="animation: skipped (static scene)")
+    return AgentResult(events=events, narration="animation: " + ", ".join(parts))

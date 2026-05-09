@@ -6,6 +6,7 @@ import {
   CameraMoveSchema,
   LightAddSchema,
   ObjectAddSchema,
+  ObjectRemoveSchema,
   ObjectUpdateSchema,
 } from '@shared/schema/sceneSchema'
 import {
@@ -14,6 +15,7 @@ import {
   SCENE_CAMERA_MOVE,
   SCENE_LIGHT_ADD,
   SCENE_OBJECT_ADD,
+  SCENE_OBJECT_REMOVE,
   SCENE_OBJECT_UPDATE,
 } from '@/lib/agui/customEventTypes'
 import { recordEvent, sceneLog, sceneWarn } from '@/lib/debug'
@@ -21,7 +23,10 @@ import type { SceneController } from '@/components/scene/SceneController'
 
 export interface RouterContext {
   controller: SceneController
-  camera: THREE.Camera
+  // Camera kept in the context for backward-compat with existing tests; the
+  // controller now holds its own camera reference for moveCamera + orbit
+  // animations, so this field is unused at runtime but harmless to pass.
+  camera?: THREE.Camera
 }
 
 export interface RawSceneEvent {
@@ -61,6 +66,16 @@ export function routeSceneEvent(event: RawSceneEvent, ctx: RouterContext): void 
       ctx.controller.updateObject(uuid, updates)
       return
     }
+    case SCENE_OBJECT_REMOVE: {
+      const parsed = ObjectRemoveSchema.safeParse(event.value)
+      if (!parsed.success) {
+        warn(event.name, parsed.error.message)
+        return
+      }
+      sceneLog('-> controller.removeObject', parsed.data.uuid)
+      ctx.controller.removeObject(parsed.data.uuid)
+      return
+    }
     case SCENE_CAMERA_MOVE: {
       const parsed = CameraMoveSchema.safeParse(event.value)
       if (!parsed.success) {
@@ -68,7 +83,7 @@ export function routeSceneEvent(event: RawSceneEvent, ctx: RouterContext): void 
         return
       }
       sceneLog('-> controller.moveCamera', parsed.data)
-      ctx.controller.moveCamera(parsed.data, ctx.camera)
+      ctx.controller.moveCamera(parsed.data)
       return
     }
     case SCENE_LIGHT_ADD: {

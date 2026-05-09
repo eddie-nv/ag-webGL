@@ -38,10 +38,17 @@ function buildLightPayload(overrides: Partial<LightAddPayload> = {}): LightAddPa
 
 function buildController(animationLoop?: AnimationLoopLike) {
   const scene = new THREE.Scene()
+  const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100)
   const objectIndex = new ObjectIndex()
   const activeWindow = new ActiveWindow()
-  const ctrl = new SceneController({ scene, objectIndex, activeWindow, animationLoop })
-  return { scene, objectIndex, activeWindow, ctrl }
+  const ctrl = new SceneController({
+    scene,
+    camera,
+    objectIndex,
+    activeWindow,
+    animationLoop,
+  })
+  return { scene, camera, objectIndex, activeWindow, ctrl }
 }
 
 describe('SceneController.addObject', () => {
@@ -159,12 +166,11 @@ describe('SceneController.addLight', () => {
 
 describe('SceneController.moveCamera', () => {
   it('updates camera position and target via lookAt', () => {
-    const { ctrl } = buildController()
-    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100)
+    const { ctrl, camera } = buildController()
     const payload: CameraMovePayload = { position: [3, 2, 5], target: [0, 0, 0] }
 
     const lookAtSpy = vi.spyOn(camera, 'lookAt')
-    ctrl.moveCamera(payload, camera)
+    ctrl.moveCamera(payload)
 
     expect(camera.position.x).toBe(3)
     expect(camera.position.y).toBe(2)
@@ -173,25 +179,14 @@ describe('SceneController.moveCamera', () => {
   })
 
   it('updates fov when provided', () => {
-    const { ctrl } = buildController()
-    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100)
+    const { ctrl, camera } = buildController()
     const payload: CameraMovePayload = { position: [0, 0, 5], target: [0, 0, 0], fov: 75 }
     const updateSpy = vi.spyOn(camera, 'updateProjectionMatrix')
 
-    ctrl.moveCamera(payload, camera)
+    ctrl.moveCamera(payload)
 
     expect(camera.fov).toBe(75)
     expect(updateSpy).toHaveBeenCalled()
-  })
-
-  it('does not assign fov on a non-PerspectiveCamera', () => {
-    const { ctrl } = buildController()
-    const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10)
-    const payload: CameraMovePayload = { position: [0, 0, 5], target: [0, 0, 0], fov: 75 }
-
-    ctrl.moveCamera(payload, ortho)
-
-    expect((ortho as unknown as { fov?: number }).fov).toBeUndefined()
   })
 })
 

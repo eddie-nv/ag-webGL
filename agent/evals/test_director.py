@@ -72,7 +72,8 @@ def test_run_director_rejects_invalid_zone() -> None:
 
 
 def test_brief_enforces_object_count_bounds() -> None:
-    """Lower bound is 1 (single-object prompts allowed); upper still 30."""
+    """Lower bound is 0 (modify-only / remove-only / camera-only prompts);
+    upper is 30."""
     one_object = {
         **_valid_brief_dict(),
         "estimatedObjectCount": 1,
@@ -82,11 +83,18 @@ def test_brief_enforces_object_count_bounds() -> None:
     }
     Brief.model_validate(one_object)  # must not raise
 
-    too_few = {**_valid_brief_dict(), "estimatedObjectCount": 0}
+    zero_objects = {
+        **_valid_brief_dict(),
+        "estimatedObjectCount": 0,
+        "objectSummary": [],
+    }
+    Brief.model_validate(zero_objects)  # must not raise (Phase 2)
+
+    negative = {**_valid_brief_dict(), "estimatedObjectCount": -1}
     too_many = {**_valid_brief_dict(), "estimatedObjectCount": 999}
 
     with pytest.raises(ValidationError):
-        Brief.model_validate(too_few)
+        Brief.model_validate(negative)
 
     with pytest.raises(ValidationError):
         Brief.model_validate(too_many)

@@ -8,6 +8,7 @@ import type {
   ObjectAddPayload,
   ObjectUpdatePayload,
 } from '@shared/schema/sceneSchema'
+import { CAMERA_ANIMATION_UUID } from '@/lib/agui/customEventTypes'
 import { ActiveWindow } from '@/serialization/activeWindow'
 import { ObjectIndex } from '@/serialization/objectIndex'
 
@@ -19,6 +20,7 @@ import type { AnimationLoopLike, Tickable } from './AnimationLoop'
 
 export interface SceneControllerOptions {
   scene: THREE.Scene
+  camera: THREE.PerspectiveCamera
   objectIndex: ObjectIndex
   activeWindow: ActiveWindow
   animationLoop?: AnimationLoopLike
@@ -36,12 +38,17 @@ interface DisposableGeometry extends THREE.BufferGeometry {
 
 export class SceneController {
   private readonly scene: THREE.Scene
+  private readonly camera: THREE.PerspectiveCamera
   private readonly objectIndex: ObjectIndex
   private readonly activeWindow: ActiveWindow
   private readonly animationLoop?: AnimationLoopLike
+  // Camera lookAt target tracked for orbit animations -- THREE.Camera doesn't
+  // expose lookAt as readable state, so we record it on every moveCamera call.
+  private cameraTarget: THREE.Vector3 = new THREE.Vector3(0, 0.8, 0)
 
   constructor(opts: SceneControllerOptions) {
     this.scene = opts.scene
+    this.camera = opts.camera
     this.objectIndex = opts.objectIndex
     this.activeWindow = opts.activeWindow
     this.animationLoop = opts.animationLoop
@@ -93,21 +100,27 @@ export class SceneController {
     this.scene.add(light)
   }
 
-  moveCamera(payload: CameraMovePayload, camera: THREE.Camera): void {
-    camera.position.set(payload.position[0], payload.position[1], payload.position[2])
-    camera.lookAt(payload.target[0], payload.target[1], payload.target[2])
-    if (payload.fov !== undefined && camera instanceof THREE.PerspectiveCamera) {
-      camera.fov = payload.fov
-      camera.updateProjectionMatrix()
+  moveCamera(payload: CameraMovePayload): void {
+    this.camera.position.set(payload.position[0], payload.position[1], payload.position[2])
+    this.camera.lookAt(payload.target[0], payload.target[1], payload.target[2])
+    this.cameraTarget.set(payload.target[0], payload.target[1], payload.target[2])
+    if (payload.fov !== undefined) {
+      this.camera.fov = payload.fov
+      this.camera.updateProjectionMatrix()
     }
   }
 
   startAnimation(payload: AnimationStartPayload): void {
     if (!this.animationLoop) return
+
+    if (payload.uuid === CAMERA_ANIMATION_UUID) {
+      this.animationLoop.register(buildCameraOrbitTickable(payload, this.camera, this.cameraTarget))
+      return
+    }
+
     const target = this.scene.getObjectByProperty('uuid', payload.uuid)
     if (!target) return
-    // Real per-animation tick logic is wired up in M7 alongside the canvas/loop.
-    this.animationLoop.register(buildTickable(payload, target))
+    this.animationLoop.register(buildObjectTickable(payload, target))
   }
 
   stopAnimation(payload: AnimationStopPayload): void {
@@ -128,7 +141,7 @@ export class SceneController {
   }
 }
 
-function buildTickable(payload: AnimationStartPayload, target: THREE.Object3D): Tickable {
+function buildObjectTickable(payload: AnimationStartPayload, target: THREE.Object3D): Tickable {
   // V1 supports a single rotation animation; richer animation composition is v2.
   const axis = (payload.axis ?? 'y') as 'x' | 'y' | 'z'
   const speed = payload.duration > 0 ? (Math.PI * 2) / payload.duration : 0
@@ -139,6 +152,33 @@ function buildTickable(payload: AnimationStartPayload, target: THREE.Object3D): 
       if (payload.animationType === 'rotate') {
         target.rotation[axis] += speed * delta
       }
+    },
+  }
+}
+
+function buildCameraOrbitTickable(
+  payload: AnimationStartPayload,
+  camera: THREE.PerspectiveCamera,
+  target: THREE.Vector3,
+): Tickable {
+  const speed = payload.duration > 0 ? (Math.PI * 2) / payload.duration : 0
+  // Capture initial offset (camera relative to target) so we orbit around it
+  // at constant radius rather than translating the camera arbitrarily.
+  const offset = camera.position.clone().sub(target)
+  const radius = Math.hypot(offset.x, offset.z)
+  const initialAngle = Math.atan2(offset.x, offset.z)
+  const initialY = camera.position.y
+  let elapsed = 0
+
+  return {
+    uuid: payload.uuid,
+    tick(delta: number) {
+      elapsed += delta
+      const angle = initialAngle + speed * elapsed
+      camera.position.x = target.x + radius * Math.sin(angle)
+      camera.position.z = target.z + radius * Math.cos(angle)
+      camera.position.y = initialY
+      camera.lookAt(target)
     },
   }
 }

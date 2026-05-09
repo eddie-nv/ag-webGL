@@ -1,7 +1,9 @@
 """Layout agent: chooses camera + zone map and emits scene:camera_move.
 
-V1 uses fixed camera presets per cameraStyle and the mocked zone map; real
-LLM-driven framing decisions are v2.
+Phase 2 rule: only emit a camera_move when the brief actually adds new
+objects to the scene. A modification-only prompt ("move the cube up",
+"remove the seed", "spin the camera") should leave the camera where it is
+unless the Director explicitly asks otherwise via a future cameraAction.
 """
 
 from __future__ import annotations
@@ -23,11 +25,13 @@ def run_layout(store: SceneStore) -> AgentResult:
     if not raw:
         return AgentResult(narration="layout: skipped (no brief)")
 
-    # Re-validate at the boundary so a malformed brief surfaces here rather
-    # than corrupting downstream camera state silently.
     brief = Brief.model_validate(raw)
-    preset = CAMERA_PRESETS.get(brief.cameraStyle, CAMERA_PRESETS["wide"])
 
+    if not brief.objectSummary:
+        # Modification-only prompt; preserve current camera framing.
+        return AgentResult(narration="layout: kept (modify-only prompt)")
+
+    preset = CAMERA_PRESETS.get(brief.cameraStyle, CAMERA_PRESETS["wide"])
     payload = CameraMovePayload(
         position=preset["position"],
         target=preset["target"],
