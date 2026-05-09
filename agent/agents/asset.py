@@ -44,12 +44,13 @@ def _build_prompt(label: str, zone: str, stage: str) -> str:
 def run_asset(store: SceneStore, model: LLMClient) -> AgentResult:
     raw = store.get_brief()
     if not raw:
-        return AgentResult()
+        return AgentResult(narration="asset: skipped (no brief)")
 
     brief = Brief.model_validate(raw)
     zone_map = store.get_zone_map()
 
     events = []
+    labels: list[str] = []
     for index, item in enumerate(brief.objectSummary):
         details_json = model.invoke(_build_prompt(item.label, item.zone, item.stage))
         details = AssetDetails.model_validate_json(details_json)
@@ -66,5 +67,16 @@ def run_asset(store: SceneStore, model: LLMClient) -> AgentResult:
         )
         store.write_object(payload.uuid, payload.model_dump())
         events.append(make_object_add(payload))
+        labels.append(item.label)
 
-    return AgentResult(events=events)
+    if not labels:
+        narration = "asset: nothing to build (empty objectSummary)"
+    elif len(labels) == 1:
+        narration = f"asset: built 1 object — {labels[0]}"
+    elif len(labels) <= 3:
+        narration = f"asset: built {len(labels)} objects — {', '.join(labels)}"
+    else:
+        head = ", ".join(labels[:3])
+        narration = f"asset: built {len(labels)} objects — {head}, +{len(labels) - 3} more"
+
+    return AgentResult(events=events, narration=narration)

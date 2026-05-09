@@ -21,7 +21,7 @@ CAMERA_PRESETS: dict[str, dict[str, tuple[float, float, float]]] = {
 def run_layout(store: SceneStore) -> AgentResult:
     raw = store.get_brief()
     if not raw:
-        return AgentResult()
+        return AgentResult(narration="layout: skipped (no brief)")
 
     # Re-validate at the boundary so a malformed brief surfaces here rather
     # than corrupting downstream camera state silently.
@@ -34,4 +34,9 @@ def run_layout(store: SceneStore) -> AgentResult:
         fov=50.0,
     )
     store.write_camera(payload.model_dump())
-    return AgentResult(events=[make_camera_move(payload)])
+    pos = preset["position"]
+    narration = (
+        f"layout: {brief.cameraStyle} camera at "
+        f"({pos[0]:g}, {pos[1]:g}, {pos[2]:g})"
+    )
+    return AgentResult(events=[make_camera_move(payload)], narration=narration)

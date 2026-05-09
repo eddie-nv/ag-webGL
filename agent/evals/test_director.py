@@ -44,6 +44,8 @@ def test_run_director_writes_brief_to_store() -> None:
     result = run_director("Walk me through a tomato plant's lifecycle", store, llm)
 
     assert result.events == []
+    assert result.narration  # narration set for the chat-bubble narrator
+    assert "tomato_plant" in result.narration
     assert store.brief["subject"] == "tomato_plant"
     assert store.brief["estimatedObjectCount"] == 4
     assert llm.last_prompt is not None
@@ -70,7 +72,17 @@ def test_run_director_rejects_invalid_zone() -> None:
 
 
 def test_brief_enforces_object_count_bounds() -> None:
-    too_few = {**_valid_brief_dict(), "estimatedObjectCount": 1}
+    """Lower bound is 1 (single-object prompts allowed); upper still 30."""
+    one_object = {
+        **_valid_brief_dict(),
+        "estimatedObjectCount": 1,
+        "objectSummary": [
+            {"label": "cube", "zone": "lower", "stage": "germination"}
+        ],
+    }
+    Brief.model_validate(one_object)  # must not raise
+
+    too_few = {**_valid_brief_dict(), "estimatedObjectCount": 0}
     too_many = {**_valid_brief_dict(), "estimatedObjectCount": 999}
 
     with pytest.raises(ValidationError):
@@ -78,3 +90,16 @@ def test_brief_enforces_object_count_bounds() -> None:
 
     with pytest.raises(ValidationError):
         Brief.model_validate(too_many)
+
+
+def test_brief_animate_defaults_to_false() -> None:
+    """A brief that doesn't mention `animate` (older clients / forgetful LLM)
+    is treated as static."""
+    brief = Brief.model_validate(_valid_brief_dict())
+    assert brief.animate is False
+
+
+def test_brief_round_trips_animate_true() -> None:
+    payload = {**_valid_brief_dict(), "animate": True}
+    brief = Brief.model_validate(payload)
+    assert brief.animate is True

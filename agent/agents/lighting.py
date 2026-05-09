@@ -54,7 +54,8 @@ LIGHT_PRESETS: dict[str, list[dict[str, Any]]] = {
 def run_lighting(store: SceneStore) -> AgentResult:
     brief = store.get_brief()
     mood = brief.get("mood", "default") if brief else "default"
-    presets = LIGHT_PRESETS.get(mood, LIGHT_PRESETS["default"])
+    preset_name = mood if mood in LIGHT_PRESETS else "default"
+    presets = LIGHT_PRESETS[preset_name]
 
     # model_validate (vs **spec unpack) gives a friendlier ValidationError if a
     # preset is ever extended with a key that isn't in LightAddPayload.
@@ -62,4 +63,8 @@ def run_lighting(store: SceneStore) -> AgentResult:
         make_light_add(LightAddPayload.model_validate({"uuid": str(uuid.uuid4()), **spec}))
         for spec in presets
     ]
-    return AgentResult(events=events)
+    narration = (
+        f"lighting: {len(events)} light{'s' if len(events) != 1 else ''} "
+        f"({preset_name} preset)"
+    )
+    return AgentResult(events=events, narration=narration)

@@ -33,4 +33,10 @@ def run_director(prompt: str, store: SceneStore, model: LLMClient) -> AgentResul
     raw = model.invoke(_build_prompt(prompt))
     brief = Brief.model_validate_json(raw)
     store.write_brief(brief.model_dump())
-    return AgentResult()
+    narration = (
+        f"director: planned {brief.subject} — {len(brief.objectSummary)} item"
+        f"{'s' if len(brief.objectSummary) != 1 else ''}, "
+        f"{len(brief.stages)} stage{'s' if len(brief.stages) != 1 else ''}"
+        f"{' (animated)' if brief.animate else ''}"
+    )
+    return AgentResult(narration=narration)

@@ -33,7 +33,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 
-from agent.graph import run_pipeline
+from agent.graph import iter_pipeline
 from agent.store.scene_store import SceneStore
 
 # Auto-load .env at the project root.
@@ -100,12 +100,14 @@ async def _stream_pipeline(payload: dict[str, Any]) -> AsyncIterator[str]:
         )
         return
 
-    # The narrative message that streams alongside the scene mutations.
-    message_id = str(uuid.uuid4())
-    yield encoder.encode(TextMessageStartEvent(messageId=message_id, role="assistant"))
+    # Opening bubble: confirm the prompt was received before the first LLM call
+    # returns (~5-10s into the run).
+    intro_id = str(uuid.uuid4())
+    yield encoder.encode(TextMessageStartEvent(messageId=intro_id, role="assistant"))
     yield encoder.encode(
-        TextMessageContentEvent(messageId=message_id, delta="Building the scene...")
+        TextMessageContentEvent(messageId=intro_id, delta="building the scene...")
     )
+    yield encoder.encode(TextMessageEndEvent(messageId=intro_id))
 
     try:
         from agent.llm import AnthropicLLM
@@ -114,40 +116,59 @@ async def _stream_pipeline(payload: dict[str, Any]) -> AsyncIterator[str]:
             raise RuntimeError("ANTHROPIC_API_KEY not set on the agent server")
 
         store = SceneStore()
+        model = AnthropicLLM()
         t0 = time.time()
-        events = run_pipeline(user_prompt, store, AnthropicLLM())
-        elapsed = time.time() - t0
+        total_events = 0
         counts: dict[str, int] = {}
-        for e in events:
-            counts[e.name] = counts.get(e.name, 0) + 1
+
+        for agent_name, result in iter_pipeline(user_prompt, store, model):
+            # Per-agent narration bubble. messageId is fresh so the frontend
+            # treats it as a new chat entry rather than appending.
+            stage_id = str(uuid.uuid4())
+            narration = result.narration or f"{agent_name}: done"
+            yield encoder.encode(
+                TextMessageStartEvent(messageId=stage_id, role="assistant")
+            )
+            yield encoder.encode(
+                TextMessageContentEvent(messageId=stage_id, delta=narration)
+            )
+            yield encoder.encode(TextMessageEndEvent(messageId=stage_id))
+
+            for event in result.events:
+                log.debug("emit %s value_keys=%s", event.name, list(event.value.keys()))
+                counts[event.name] = counts.get(event.name, 0) + 1
+                total_events += 1
+                yield encoder.encode(
+                    CustomEvent(name=event.name, value=event.value, timestamp=_now_ms())
+                )
+
+        elapsed = time.time() - t0
         log.info(
             "pipeline ok elapsed=%.1fs total=%d %s",
             elapsed,
-            len(events),
+            total_events,
             ", ".join(f"{k}={v}" for k, v in sorted(counts.items())),
         )
 
-        for event in events:
-            log.debug("emit %s value_keys=%s", event.name, list(event.value.keys()))
-            yield encoder.encode(
-                CustomEvent(name=event.name, value=event.value, timestamp=_now_ms())
-            )
-
+        # Final summary bubble.
+        done_id = str(uuid.uuid4())
+        yield encoder.encode(TextMessageStartEvent(messageId=done_id, role="assistant"))
         yield encoder.encode(
             TextMessageContentEvent(
-                messageId=message_id,
-                delta=f" Done -- {len(events)} events emitted.",
+                messageId=done_id,
+                delta=f"done — {total_events} event{'s' if total_events != 1 else ''} in {elapsed:.0f}s",
             )
         )
+        yield encoder.encode(TextMessageEndEvent(messageId=done_id))
     except Exception as exc:
         log.error("pipeline failed: %s\n%s", exc, traceback.format_exc())
+        err_id = str(uuid.uuid4())
+        yield encoder.encode(TextMessageStartEvent(messageId=err_id, role="assistant"))
         yield encoder.encode(
-            TextMessageContentEvent(
-                messageId=message_id, delta=f" Pipeline failed: {exc}"
-            )
+            TextMessageContentEvent(messageId=err_id, delta=f"pipeline failed: {exc}")
         )
+        yield encoder.encode(TextMessageEndEvent(messageId=err_id))
 
-    yield encoder.encode(TextMessageEndEvent(messageId=message_id))
     yield encoder.encode(
         RunFinishedEvent(threadId=thread_id, runId=run_id, timestamp=_now_ms())
     )

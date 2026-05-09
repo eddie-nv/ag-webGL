@@ -11,6 +11,7 @@ interface Props {
 }
 
 interface ChatMessage {
+  id: string
   role: 'user' | 'assistant'
   content: string
 }
@@ -21,6 +22,14 @@ interface AGUIEvent {
   value?: unknown
   delta?: string
   messageId?: string
+  role?: string
+}
+
+function localId(): string {
+  // crypto.randomUUID exists in modern browsers; fall back if absent.
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `local-${Math.random().toString(36).slice(2)}-${Date.now()}`
 }
 
 export function SceneChat({ setup }: Props) {
@@ -38,24 +47,20 @@ export function SceneChat({ setup }: Props) {
     if (!prompt || streaming) return
     setInput('')
     setStreaming(true)
-    setMessages((m) => [
-      ...m,
-      { role: 'user', content: prompt },
-      { role: 'assistant', content: '' },
-    ])
+    setMessages((m) => [...m, { id: localId(), role: 'user', content: prompt }])
 
     try {
       await streamPipeline(prompt, (event) => handleEvent(event, setup, setMessages))
     } catch (err) {
       sceneWarn('chat failed:', err)
-      setMessages((m) => {
-        const last = m[m.length - 1]
-        const note = ` [error: ${(err as Error).message}]`
-        if (last?.role === 'assistant') {
-          return [...m.slice(0, -1), { ...last, content: last.content + note }]
-        }
-        return m
-      })
+      setMessages((m) => [
+        ...m,
+        {
+          id: localId(),
+          role: 'assistant',
+          content: `[error: ${(err as Error).message}]`,
+        },
+      ])
     } finally {
       setStreaming(false)
     }
@@ -71,13 +76,10 @@ export function SceneChat({ setup }: Props) {
             <em>walk me through a tomato plant&apos;s lifecycle</em>
           </div>
         )}
-        {messages.map((m, i) => (
-          <div key={i} style={bubbleStyle(m.role)}>
+        {messages.map((m) => (
+          <div key={m.id} style={bubbleStyle(m.role)}>
             <div style={roleStyle}>{m.role}</div>
-            <div>
-              {m.content ||
-                (streaming && i === messages.length - 1 ? 'building the scene...' : '')}
-            </div>
+            <div>{m.content || '…'}</div>
           </div>
         ))}
         <div ref={endRef} />
@@ -159,15 +161,37 @@ function handleEvent(
   setup: SceneSetup,
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
 ): void {
-  sceneLog('agui event:', event.type, event.name ?? '')
+  sceneLog('agui event:', event.type, event.name ?? event.messageId ?? '')
 
-  if (event.type === 'TEXT_MESSAGE_CONTENT' && typeof event.delta === 'string') {
+  // TEXT_MESSAGE_START -> push a fresh assistant bubble keyed by messageId.
+  // The backend opens a new TextMessage per agent so each step gets its own
+  // bubble in the chat (intro -> director -> layout -> ... -> done).
+  if (event.type === 'TEXT_MESSAGE_START' && typeof event.messageId === 'string') {
+    const id = event.messageId
     setMessages((m) => {
-      const last = m[m.length - 1]
-      if (last?.role === 'assistant') {
-        return [...m.slice(0, -1), { ...last, content: last.content + event.delta }]
+      if (m.some((msg) => msg.id === id)) return m
+      return [...m, { id, role: 'assistant', content: '' }]
+    })
+    return
+  }
+
+  if (
+    event.type === 'TEXT_MESSAGE_CONTENT' &&
+    typeof event.messageId === 'string' &&
+    typeof event.delta === 'string'
+  ) {
+    const id = event.messageId
+    const delta = event.delta
+    setMessages((m) => {
+      const idx = m.findIndex((msg) => msg.id === id)
+      if (idx === -1) {
+        // No prior START event observed -- create the bubble now so we don't
+        // drop content. Defensive; backend always sends START first.
+        return [...m, { id, role: 'assistant', content: delta }]
       }
-      return m
+      const next = [...m]
+      next[idx] = { ...next[idx], content: next[idx].content + delta }
+      return next
     })
     return
   }

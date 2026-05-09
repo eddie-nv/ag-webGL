@@ -21,6 +21,7 @@ class LLMClient(Protocol):
 @dataclass
 class AgentResult:
     events: list[CustomEvent] = field(default_factory=list)
+    narration: str = ""
 
 
 CameraStyle = Literal["wide", "closeup", "orbit"]
@@ -38,5 +39,11 @@ class Brief(BaseModel):
     stages: list[str]
     mood: str
     cameraStyle: CameraStyle
-    estimatedObjectCount: int = Field(ge=3, le=30)
+    # Lower bound is 1 so a "make a blue cube" prompt yields a single-item brief
+    # rather than padding to three. Animation/multi-stage logic keys off `animate`.
+    estimatedObjectCount: int = Field(ge=1, le=30)
     objectSummary: list[ObjectSummaryItem]
+    # Director declares whether the scene should animate. Defaults to False so a
+    # forgetful or older-prompt brief produces a static scene rather than spinning
+    # everything by accident.
+    animate: bool = False
