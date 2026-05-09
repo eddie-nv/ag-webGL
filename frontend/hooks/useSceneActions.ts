@@ -1,4 +1,3 @@
-import { useCopilotAction } from '@copilotkit/react-core'
 import type * as THREE from 'three'
 
 import {
@@ -33,8 +32,8 @@ export interface RawSceneEvent {
 /**
  * Pure dispatcher from a SceneEvent to the matching SceneController method.
  * Validates the payload via Zod and silently drops malformed events with a
- * console.warn, so a single bad event from the agent stream cannot crash the
- * canvas.
+ * sceneWarn -- a single bad event from the agent stream cannot crash the
+ * canvas. Called from SceneChat as it parses the AG-UI SSE stream.
  */
 export function routeSceneEvent(event: RawSceneEvent, ctx: RouterContext): void {
   sceneLog('event in:', event.name, event.value)
@@ -110,75 +109,4 @@ export function routeSceneEvent(event: RawSceneEvent, ctx: RouterContext): void 
 
 function warn(eventName: string, detail: string): void {
   sceneWarn(`invalid ${eventName} payload:`, detail)
-}
-
-const PAYLOAD_PARAM = [
-  {
-    name: 'payload',
-    type: 'object' as const,
-    description: 'Event payload matching shared/schema/sceneSchema.ts',
-    required: true,
-  },
-]
-
-/**
- * Registers one CopilotKit frontend action per vocabulary event. Each action's
- * handler routes through routeSceneEvent so the SceneController is the only
- * mutator of Three.js state. The hook returns void; CopilotKit consumes the
- * registrations from its provider context.
- */
-export function useSceneActions(ctx: RouterContext): void {
-  useCopilotAction({
-    name: SCENE_OBJECT_ADD,
-    description: 'Add an object to the Three.js scene',
-    parameters: PAYLOAD_PARAM,
-    handler: (args: { [x: string]: object }) => {
-      routeSceneEvent({ name: SCENE_OBJECT_ADD, value: args.payload }, ctx)
-    },
-  })
-
-  useCopilotAction({
-    name: SCENE_OBJECT_UPDATE,
-    description: 'Update an existing object (position/rotation/scale/material)',
-    parameters: PAYLOAD_PARAM,
-    handler: (args: { [x: string]: object }) => {
-      routeSceneEvent({ name: SCENE_OBJECT_UPDATE, value: args.payload }, ctx)
-    },
-  })
-
-  useCopilotAction({
-    name: SCENE_CAMERA_MOVE,
-    description: 'Move the camera (position + target, optional fov)',
-    parameters: PAYLOAD_PARAM,
-    handler: (args: { [x: string]: object }) => {
-      routeSceneEvent({ name: SCENE_CAMERA_MOVE, value: args.payload }, ctx)
-    },
-  })
-
-  useCopilotAction({
-    name: SCENE_LIGHT_ADD,
-    description: 'Add a light (Directional/Ambient/Point)',
-    parameters: PAYLOAD_PARAM,
-    handler: (args: { [x: string]: object }) => {
-      routeSceneEvent({ name: SCENE_LIGHT_ADD, value: args.payload }, ctx)
-    },
-  })
-
-  useCopilotAction({
-    name: SCENE_ANIMATION_START,
-    description: 'Start an animation (rotate, etc.) on an existing object',
-    parameters: PAYLOAD_PARAM,
-    handler: (args: { [x: string]: object }) => {
-      routeSceneEvent({ name: SCENE_ANIMATION_START, value: args.payload }, ctx)
-    },
-  })
-
-  useCopilotAction({
-    name: SCENE_ANIMATION_STOP,
-    description: 'Stop a running animation by uuid',
-    parameters: PAYLOAD_PARAM,
-    handler: (args: { [x: string]: object }) => {
-      routeSceneEvent({ name: SCENE_ANIMATION_STOP, value: args.payload }, ctx)
-    },
-  })
 }

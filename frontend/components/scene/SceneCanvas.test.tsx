@@ -28,13 +28,9 @@ vi.mock('three', async () => {
   }
 })
 
-vi.mock('@copilotkit/react-core', () => ({
-  useCopilotAction: vi.fn(),
-  useCopilotReadable: vi.fn(),
-}))
-
 import { AnimationLoop } from './AnimationLoop'
 import { SceneCanvas } from './SceneCanvas'
+import { buildSceneSetup } from '@/lib/sceneSetup'
 
 describe('SceneCanvas', () => {
   beforeEach(() => {
@@ -42,25 +38,29 @@ describe('SceneCanvas', () => {
   })
 
   it('mounts without throwing', () => {
-    expect(() => render(<SceneCanvas />)).not.toThrow()
+    const setup = buildSceneSetup()
+    expect(() => render(<SceneCanvas setup={setup} />)).not.toThrow()
   })
 
   it('calls renderer.dispose on unmount', () => {
-    const { unmount } = render(<SceneCanvas />)
+    const setup = buildSceneSetup()
+    const { unmount } = render(<SceneCanvas setup={setup} />)
     unmount()
     expect(hoisted.rendererInstance.dispose).toHaveBeenCalled()
   })
 
   it('AnimationLoop.stop is called on unmount', () => {
     const stopSpy = vi.spyOn(AnimationLoop.prototype, 'stop')
-    const { unmount } = render(<SceneCanvas />)
+    const setup = buildSceneSetup()
+    const { unmount } = render(<SceneCanvas setup={setup} />)
     unmount()
     expect(stopSpy).toHaveBeenCalled()
     stopSpy.mockRestore()
   })
 
   it('appends a canvas element to the container', () => {
-    const { container } = render(<SceneCanvas />)
+    const setup = buildSceneSetup()
+    const { container } = render(<SceneCanvas setup={setup} />)
     expect(container.querySelector('canvas')).toBeTruthy()
   })
 })
