@@ -20,6 +20,10 @@ export class ActiveWindow {
     return this.uuids.includes(uuid)
   }
 
+  remove(uuid: string): void {
+    this.uuids = this.uuids.filter((u) => u !== uuid)
+  }
+
   toArray(): string[] {
     return [...this.uuids]
   }

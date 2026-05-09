@@ -45,4 +45,21 @@ describe('ActiveWindow', () => {
 
     expect(win.toArray()).toEqual(['u2', 'u1'])
   })
+
+  it('remove drops the uuid from the window', () => {
+    const win = new ActiveWindow()
+    win.push('u1')
+    win.push('u2')
+    win.push('u3')
+    win.remove('u2')
+    expect(win.toArray()).toEqual(['u1', 'u3'])
+    expect(win.contains('u2')).toBe(false)
+  })
+
+  it('remove on unknown uuid is a no-op', () => {
+    const win = new ActiveWindow()
+    win.push('u1')
+    expect(() => win.remove('ghost')).not.toThrow()
+    expect(win.toArray()).toEqual(['u1'])
+  })
 })
