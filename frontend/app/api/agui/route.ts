@@ -3,7 +3,15 @@
  * The browser POSTs JSON here; we forward to SCENE_AGENT_URL and pipe the
  * text/event-stream body straight back. No CopilotKit, no GraphQL -- just
  * a passthrough so the canvas can subscribe to AG-UI events directly.
+ *
+ * `dynamic = force-dynamic` and the explicit nodejs runtime stop Next.js
+ * App Router from buffering the upstream body waiting for a complete
+ * response -- without these, the stream is held until the backend closes
+ * even though we yield SSE chunks incrementally on the Python side.
  */
+
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 const BACKEND_URL = process.env.SCENE_AGENT_URL ?? 'http://localhost:8000/agui'
 

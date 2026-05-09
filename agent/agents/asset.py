@@ -12,8 +12,10 @@ add retry/repair around real-model calls.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterator
 from pathlib import Path
 
+from ag_ui.core import CustomEvent
 from pydantic import BaseModel
 
 from agent.agents.placement import place_in_zone
@@ -41,17 +43,37 @@ def _build_prompt(label: str, zone: str, stage: str) -> str:
     )
 
 
-def run_asset(store: SceneStore, model: LLMClient) -> AgentResult:
+def iter_asset_items(
+    store: SceneStore, model: LLMClient
+) -> Iterator[str | CustomEvent]:
+    """Stream-friendly variant of `run_asset`.
+
+    Yields one of:
+      - `str` -- per-item progress narration ("asset: building cube (1/4)…")
+        emitted BEFORE the LLM call for that item, so the chat updates while
+        the LLM is in flight rather than after.
+      - `CustomEvent` -- scene:object_add for the just-built item.
+
+    The trailing summary narration ("asset: built 4 objects -- ...") is the
+    caller's responsibility -- only it knows when iteration finishes.
+
+    Used by:
+      - `agent/main.py` for SSE streaming, driven via asyncio.to_thread per
+        item so the asyncio loop can flush bytes between LLM calls.
+      - `run_asset` (sync wrapper below) for tests and any non-streaming
+        caller that just wants the final event list.
+    """
     raw = store.get_brief()
     if not raw:
-        return AgentResult(narration="asset: skipped (no brief)")
+        return
 
     brief = Brief.model_validate(raw)
     zone_map = store.get_zone_map()
+    total = len(brief.objectSummary)
 
-    events = []
-    labels: list[str] = []
     for index, item in enumerate(brief.objectSummary):
+        yield f"asset: building {item.label} ({index + 1}/{total})…"
+
         details_json = model.invoke(_build_prompt(item.label, item.zone, item.stage))
         details = AssetDetails.model_validate_json(details_json)
 
@@ -66,8 +88,20 @@ def run_asset(store: SceneStore, model: LLMClient) -> AgentResult:
             stage=item.stage,
         )
         store.write_object(payload.uuid, payload.model_dump())
-        events.append(make_object_add(payload))
-        labels.append(item.label)
+        yield make_object_add(payload)
+
+
+def run_asset(store: SceneStore, model: LLMClient) -> AgentResult:
+    if not store.get_brief():
+        return AgentResult(narration="asset: skipped (no brief)")
+
+    events: list[CustomEvent] = []
+    labels: list[str] = []
+    for item in iter_asset_items(store, model):
+        if isinstance(item, CustomEvent):
+            events.append(item)
+            labels.append(item.value.get("label", "?"))
+        # progress strings are only consumed by the streaming caller.
 
     if not labels:
         narration = "asset: nothing to build (empty objectSummary)"
