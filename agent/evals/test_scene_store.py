@@ -127,3 +127,16 @@ def test_get_zone_map_returns_copy() -> None:
     zones["ground"]["yRange"][0] = 999.0
     fresh = store.get_zone_map()
     assert fresh["ground"]["yRange"][0] != 999.0
+
+
+def test_get_brief_returns_copy() -> None:
+    """Mutating the returned brief must not affect store state."""
+    store = SceneStore()
+    store.write_brief({"subject": "tomato", "stages": ["g"]})
+    brief = store.get_brief()
+    brief["subject"] = "mutated"
+    assert store.get_brief()["subject"] == "tomato"
+
+
+def test_get_brief_empty_when_unset() -> None:
+    assert SceneStore().get_brief() == {}

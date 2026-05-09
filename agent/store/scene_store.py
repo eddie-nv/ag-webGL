@@ -38,6 +38,9 @@ class SceneStore:
     def write_camera(self, payload: dict[str, Any]) -> None:
         self.camera = copy.deepcopy(payload)
 
+    def get_brief(self) -> dict[str, Any]:
+        return copy.deepcopy(self.brief)
+
     def get_manifest(self) -> dict[str, str]:
         return {uuid: obj.get("label", "") for uuid, obj in self.objects.items()}
 
