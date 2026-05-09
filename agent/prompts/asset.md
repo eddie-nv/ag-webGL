@@ -4,6 +4,13 @@ For each item in the brief's objectSummary, choose the geometry and material
 that best represents it. The pipeline assigns positions deterministically from
 the item's zone -- you do not choose position.
 
+## CRITICAL: response format
+
+Your entire response MUST be a single JSON object and nothing else.
+Do not include any preface ("I'll help you..."), explanation, prose,
+markdown fences, code blocks, or trailing commentary. Start with `{` and
+end with `}`.
+
 ## Tools available
 
 - `get_zone_map` -- call before reasoning about layout

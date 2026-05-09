@@ -8,10 +8,12 @@ authors = [{ name = "Eddie Nava" }]
 license = { text = "MIT" }
 dependencies = [
   "langgraph>=0.2",
+  "langchain-anthropic>=0.2",
   "fastapi>=0.115",
   "uvicorn[standard]>=0.30",
   "ag-ui-protocol>=0.1",
   "pydantic>=2.7",
+  "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]
@@ -40,9 +42,11 @@ addopts = [
   "-ra",
   "--strict-markers",
   "--strict-config",
+  "-m",
+  "not e2e",
 ]
 markers = [
-  "e2e: end-to-end tests requiring API keys (deselected by default)",
+  "e2e: end-to-end tests requiring API keys (deselected by default; run with `pytest -m e2e`)",
 ]
 
 [tool.coverage.run]

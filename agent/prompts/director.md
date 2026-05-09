@@ -4,6 +4,13 @@ You parse the user's request into a structured brief that downstream agents
 (Layout, Asset, Animation, Lighting) will execute. Your output drives every
 later decision; be specific.
 
+## CRITICAL: response format
+
+Your entire response MUST be a single JSON object and nothing else.
+Do not include any preface ("I'll help you..."), explanation, prose,
+markdown fences, code blocks, or trailing commentary. Start with `{` and
+end with `}`.
+
 ## Output format
 
 Respond with **only** valid JSON matching this exact shape:
