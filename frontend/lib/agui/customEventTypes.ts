@@ -2,6 +2,7 @@ import type {
   AnimationStartPayload,
   AnimationStopPayload,
   CameraMovePayload,
+  ControlPanelPayload,
   LightAddPayload,
   ObjectAddPayload,
   ObjectRemovePayload,
@@ -15,6 +16,7 @@ export const SCENE_CAMERA_MOVE = 'scene:camera_move' as const
 export const SCENE_LIGHT_ADD = 'scene:light_add' as const
 export const SCENE_ANIMATION_START = 'scene:animation_start' as const
 export const SCENE_ANIMATION_STOP = 'scene:animation_stop' as const
+export const SCENE_CONTROL_PANEL = 'scene:control_panel' as const
 
 // Convention: a scene:animation_start event with this uuid targets the camera
 // (orbit around its current lookAt) instead of an object in the scene.
@@ -28,6 +30,7 @@ export type SceneEventName =
   | typeof SCENE_LIGHT_ADD
   | typeof SCENE_ANIMATION_START
   | typeof SCENE_ANIMATION_STOP
+  | typeof SCENE_CONTROL_PANEL
 
 export interface SceneObjectAddEvent {
   name: typeof SCENE_OBJECT_ADD
@@ -64,6 +67,11 @@ export interface SceneAnimationStopEvent {
   value: AnimationStopPayload
 }
 
+export interface SceneControlPanelEvent {
+  name: typeof SCENE_CONTROL_PANEL
+  value: ControlPanelPayload
+}
+
 export type SceneEvent =
   | SceneObjectAddEvent
   | SceneObjectUpdateEvent
@@ -72,11 +80,13 @@ export type SceneEvent =
   | SceneLightAddEvent
   | SceneAnimationStartEvent
   | SceneAnimationStopEvent
+  | SceneControlPanelEvent
 
 export type {
   AnimationStartPayload,
   AnimationStopPayload,
   CameraMovePayload,
+  ControlPanelPayload,
   LightAddPayload,
   ObjectAddPayload,
   ObjectRemovePayload,

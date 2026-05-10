@@ -32,3 +32,9 @@ SCENE_ANIMATION_START = "scene:animation_start"
 
 SCENE_ANIMATION_STOP = "scene:animation_stop"
 # required: uuid
+
+SCENE_CONTROL_PANEL = "scene:control_panel"
+# required: id, controls
+# optional: title
+# Inline UI rendered as a chat bubble. Each control has a `kind` discriminator:
+# 'button' (one-shot, fires `emits` events) or 'toggle' (stateful on/off).

@@ -72,3 +72,38 @@ export const AnimationStopSchema = z.object({
   uuid: z.string(),
 })
 export type AnimationStopPayload = z.infer<typeof AnimationStopSchema>
+
+export const EmitSpecSchema = z.object({
+  name: z.string(),
+  value: z.record(z.string(), z.unknown()),
+})
+export type EmitSpec = z.infer<typeof EmitSpecSchema>
+
+export const ButtonControlSchema = z.object({
+  kind: z.literal('button'),
+  label: z.string(),
+  emits: z.array(EmitSpecSchema),
+})
+export type ButtonControl = z.infer<typeof ButtonControlSchema>
+
+export const ToggleControlSchema = z.object({
+  kind: z.literal('toggle'),
+  label: z.string(),
+  default: z.boolean().optional(),
+  on: z.array(EmitSpecSchema),
+  off: z.array(EmitSpecSchema),
+})
+export type ToggleControl = z.infer<typeof ToggleControlSchema>
+
+export const ControlSchema = z.discriminatedUnion('kind', [
+  ButtonControlSchema,
+  ToggleControlSchema,
+])
+export type Control = z.infer<typeof ControlSchema>
+
+export const ControlPanelSchema = z.object({
+  id: z.string(),
+  title: z.string().optional(),
+  controls: z.array(ControlSchema),
+})
+export type ControlPanelPayload = z.infer<typeof ControlPanelSchema>

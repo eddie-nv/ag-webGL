@@ -45,6 +45,7 @@ from fastapi.responses import StreamingResponse
 
 from agent.agents.animation import run_animation
 from agent.agents.asset import iter_asset_items
+from agent.agents.controls import run_controls
 from agent.agents.director import run_director
 from agent.agents.layout import run_layout
 from agent.agents.lighting import run_lighting
@@ -225,6 +226,14 @@ async def _stream_pipeline(payload: dict[str, Any]) -> AsyncIterator[str]:
         async for chunk in _bubble(encoder, lighting_result.narration):
             yield chunk
         for event in lighting_result.events:
+            yield _emit_custom(encoder, event, counts)
+
+        # ---- Controls ----
+        controls_result = await asyncio.to_thread(run_controls, store)
+        if controls_result.narration:  # Skip empty bubble when no panel asked.
+            async for chunk in _bubble(encoder, controls_result.narration):
+                yield chunk
+        for event in controls_result.events:
             yield _emit_custom(encoder, event, counts)
 
         elapsed = time.time() - t0

@@ -2,18 +2,32 @@
 
 import { useEffect, useRef, useState } from 'react'
 
+import { ControlPanelSchema, type ControlPanelPayload } from '@shared/schema/sceneSchema'
 import { routeSceneEvent } from '@/hooks/useSceneActions'
 import { sceneLog, sceneWarn } from '@/lib/debug'
 import { buildSceneSnapshot, type SceneSetup } from '@/lib/sceneSetup'
+
+import { ControlPanel } from './ControlPanel'
 
 interface Props {
   setup: SceneSetup
 }
 
-interface ChatMessage {
+type ChatMessage =
+  | TextMessage
+  | ControlPanelMessage
+
+interface TextMessage {
+  kind: 'text'
   id: string
   role: 'user' | 'assistant'
   content: string
+}
+
+interface ControlPanelMessage {
+  kind: 'controlPanel'
+  id: string
+  panel: ControlPanelPayload
 }
 
 interface AGUIEvent {
@@ -47,7 +61,10 @@ export function SceneChat({ setup }: Props) {
     if (!prompt || streaming) return
     setInput('')
     setStreaming(true)
-    setMessages((m) => [...m, { id: localId(), role: 'user', content: prompt }])
+    setMessages((m) => [
+      ...m,
+      { kind: 'text', id: localId(), role: 'user', content: prompt },
+    ])
 
     try {
       const snapshot = buildSceneSnapshot(setup)
@@ -60,6 +77,7 @@ export function SceneChat({ setup }: Props) {
       setMessages((m) => [
         ...m,
         {
+          kind: 'text',
           id: localId(),
           role: 'assistant',
           content: `[error: ${(err as Error).message}]`,
@@ -80,12 +98,22 @@ export function SceneChat({ setup }: Props) {
             <em>walk me through a tomato plant&apos;s lifecycle</em>
           </div>
         )}
-        {messages.map((m) => (
-          <div key={m.id} style={bubbleStyle(m.role)}>
-            <div style={roleStyle}>{m.role}</div>
-            <div>{m.content || '…'}</div>
-          </div>
-        ))}
+        {messages.map((m) => {
+          if (m.kind === 'controlPanel') {
+            return (
+              <div key={m.id} style={bubbleStyle('assistant')}>
+                <div style={roleStyle}>controls</div>
+                <ControlPanel panel={m.panel} setup={setup} />
+              </div>
+            )
+          }
+          return (
+            <div key={m.id} style={bubbleStyle(m.role)}>
+              <div style={roleStyle}>{m.role}</div>
+              <div>{m.content || '…'}</div>
+            </div>
+          )
+        })}
         <div ref={endRef} />
       </div>
       <form
@@ -176,7 +204,7 @@ function handleEvent(
     const id = event.messageId
     setMessages((m) => {
       if (m.some((msg) => msg.id === id)) return m
-      return [...m, { id, role: 'assistant', content: '' }]
+      return [...m, { kind: 'text', id, role: 'assistant', content: '' }]
     })
     return
   }
@@ -193,12 +221,34 @@ function handleEvent(
       if (idx === -1) {
         // No prior START event observed -- create the bubble now so we don't
         // drop content. Defensive; backend always sends START first.
-        return [...m, { id, role: 'assistant', content: delta }]
+        return [...m, { kind: 'text', id, role: 'assistant', content: delta }]
       }
+      const existing = m[idx]
+      if (existing.kind !== 'text') return m
       const next = [...m]
-      next[idx] = { ...next[idx], content: next[idx].content + delta }
+      next[idx] = { ...existing, content: existing.content + delta }
       return next
     })
+    return
+  }
+
+  if (
+    event.type === 'CUSTOM' &&
+    typeof event.name === 'string' &&
+    event.name === 'scene:control_panel'
+  ) {
+    // Inline panel goes into its own chat bubble (separate from any text
+    // messages). Validate the payload so a malformed agent output doesn't
+    // crash the render path.
+    const parsed = ControlPanelSchema.safeParse(event.value)
+    if (!parsed.success) {
+      sceneWarn('invalid control_panel payload:', parsed.error.message)
+      return
+    }
+    setMessages((m) => [
+      ...m,
+      { kind: 'controlPanel', id: localId(), panel: parsed.data },
+    ])
     return
   }
 

@@ -280,6 +280,73 @@ right of the stem, not above it.
 }
 ```
 
+### Inline control panel
+
+User prompt: "give me controls" / "let me toggle the camera spin" /
+"add a control panel"
+Current scene:
+  - 7e1c4f8a-...: cube
+
+Build a `controlPanel` block with `kind: "button"` for one-shots and
+`kind: "toggle"` for on/off state. Each control's `emits` (or `on`/`off`
+for toggles) is a list of `{name, value}` pairs that the frontend
+dispatches as scene events when activated -- exactly the same shape as
+the SSE custom events you already know how to produce.
+
+Useful pre-baked controls for any scene:
+
+- Toggle camera spin: on emits scene:animation_start uuid="camera"
+  rotate y loop; off emits scene:animation_stop uuid="camera".
+- Button per object to delete it: emits scene:object_remove with the
+  object's uuid (must come from the Current scene state below).
+- Button to scale an object: emits scene:object_update with a
+  `scale` array.
+
+```json
+{
+  "subject": "blue_cube",
+  "stages": ["static"],
+  "mood": "default",
+  "cameraStyle": "wide",
+  "estimatedObjectCount": 0,
+  "objectSummary": [],
+  "updates": [],
+  "removals": [],
+  "cameraAction": { "spin": false, "stopSpin": false },
+  "animate": false,
+  "controlPanel": {
+    "id": "default",
+    "title": "Controls",
+    "controls": [
+      {
+        "kind": "toggle",
+        "label": "Spin camera",
+        "default": false,
+        "on": [
+          { "name": "scene:animation_start",
+            "value": { "uuid": "camera", "animationType": "rotate",
+                       "duration": 12, "axis": "y", "loop": true } }
+        ],
+        "off": [
+          { "name": "scene:animation_stop", "value": { "uuid": "camera" } }
+        ]
+      },
+      {
+        "kind": "button",
+        "label": "Delete cube",
+        "emits": [
+          { "name": "scene:object_remove",
+            "value": { "uuid": "7e1c4f8a-..." } }
+        ]
+      }
+    ]
+  }
+}
+```
+
+You only emit a `controlPanel` when the user EXPLICITLY asks for one.
+Default to `controlPanel: null` (or omit the field) on every other prompt.
+
 ### Multi-stage process (animation)
 
 User prompt: "walk me through a tomato plant's lifecycle"

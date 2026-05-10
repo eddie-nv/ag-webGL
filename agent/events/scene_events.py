@@ -12,6 +12,7 @@ from agent.events.vocabulary import (
     SCENE_ANIMATION_START,
     SCENE_ANIMATION_STOP,
     SCENE_CAMERA_MOVE,
+    SCENE_CONTROL_PANEL,
     SCENE_LIGHT_ADD,
     SCENE_OBJECT_ADD,
     SCENE_OBJECT_REMOVE,
@@ -21,6 +22,7 @@ from shared.schema.sceneSchema import (
     AnimationStartPayload,
     AnimationStopPayload,
     CameraMovePayload,
+    ControlPanelPayload,
     LightAddPayload,
     ObjectAddPayload,
     ObjectRemovePayload,
@@ -74,5 +76,12 @@ def make_animation_start(payload: AnimationStartPayload) -> CustomEvent:
 def make_animation_stop(payload: AnimationStopPayload) -> CustomEvent:
     return CustomEvent(
         name=SCENE_ANIMATION_STOP,
+        value=payload.model_dump(exclude_none=True),
+    )
+
+
+def make_control_panel(payload: ControlPanelPayload) -> CustomEvent:
+    return CustomEvent(
+        name=SCENE_CONTROL_PANEL,
         value=payload.model_dump(exclude_none=True),
     )

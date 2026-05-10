@@ -8,7 +8,7 @@ from typing import Literal, Protocol
 from ag_ui.core import CustomEvent
 from pydantic import BaseModel, Field
 
-from shared.schema.sceneSchema import Material, Vec3
+from shared.schema.sceneSchema import ControlPanelPayload, Material, Vec3
 
 
 class LLMClient(Protocol):
@@ -112,3 +112,7 @@ class Brief(BaseModel):
     cameraAction: CameraAction | None = None
     # True only when the user described a process / change over time.
     animate: bool = False
+    # Optional inline control panel the user asked for. When present, the
+    # Controls stage emits a scene:control_panel event so the frontend
+    # renders an interactive bubble (buttons + toggles) inline in chat.
+    controlPanel: ControlPanelPayload | None = None
