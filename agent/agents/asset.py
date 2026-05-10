@@ -20,7 +20,7 @@ from pathlib import Path
 from ag_ui.core import CustomEvent
 from pydantic import BaseModel
 
-from agent.agents.placement import place_in_zone
+from agent.agents.placement import Placer
 from agent.agents.types import AgentResult, Brief, LLMClient
 from agent.events.scene_events import (
     make_animation_stop,
@@ -134,6 +134,7 @@ def iter_asset_items(
 
     # ---- additions (LLM-driven) ----
     zone_map = store.get_zone_map()
+    placer = Placer(brief.objectSummary, zone_map)
     total = len(brief.objectSummary)
     for index, item in enumerate(brief.objectSummary):
         yield f"asset: building {item.label} ({index + 1}/{total})…"
@@ -141,7 +142,9 @@ def iter_asset_items(
         details_json = model.invoke(_build_prompt(item.label, item.zone, item.stage))
         details = AssetDetails.model_validate_json(details_json)
 
-        position = place_in_zone(item.zone, zone_map, index)
+        # Anchored / stacked / grid placement is decided here based on the
+        # full brief context + the geometry the LLM just chose for this item.
+        position = placer.place(index, item, details.geometryType, details.geometryArgs)
         payload = ObjectAddPayload(
             uuid=str(uuid.uuid4()),
             label=item.label,

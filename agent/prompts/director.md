@@ -26,7 +26,16 @@ end with `}`.
   "cameraStyle": "wide | closeup | orbit",
   "estimatedObjectCount": 1,
   "objectSummary": [
-    { "label": "string", "zone": "ground | lower | mid | upper", "stage": "one of stages" }
+    {
+      "label": "string",
+      "zone": "ground | lower | mid | upper",
+      "stage": "one of stages",
+      "anchor": {
+        "relativeTo": "another label in this same objectSummary",
+        "placement": "above | below | left | right | front | back | on",
+        "offset": 0.0
+      }
+    }
   ],
   "updates": [
     {
@@ -60,6 +69,30 @@ no-op object_update if no other diff fields are set).
 - lower:  y in [0.0, 0.6]  -- plant base, lower stem, ground vegetation
 - mid:    y in [0.6, 1.2]  -- main body, branches, mid-elevation features
 - upper:  y in [1.2, 2.0]  -- canopy, fruit, top features
+
+## Composition: use `anchor` for parts of one thing
+
+When the user asks for a single composed subject ("make a flower",
+"make a robot", "build a house"), the parts MUST be anchored to each
+other. Without anchors the placement engine drops each item into a flat
+grid and they end up scattered across the canvas.
+
+Rules:
+- The "root" part (the thing other parts attach to) has NO anchor. It
+  goes to the center of its zone.
+- Every OTHER part has an `anchor` whose `relativeTo` is the label of an
+  earlier item in this same objectSummary. Order matters -- the placement
+  engine resolves anchors in declaration order.
+- `placement: "above"` is geometry-aware: the child clears the parent's
+  bounding-box top with `offset` extra clearance. Same for `below / left /
+  right / front / back`. Use `placement: "on"` when something sits flush
+  on top (e.g. stamen on petals).
+- `offset: 0.0` is the default and almost always correct -- only set it
+  when you specifically want extra space.
+
+If the user just asks for multiple unrelated things ("a cube and a
+sphere", "show how a tomato grows over time"), don't use anchors. The
+default grid placement keeps the items separate.
 
 ## Constraints
 
@@ -205,6 +238,42 @@ Current scene:
   "updates": [
     { "uuid": "7e1c4f8a-...", "stopAnimation": true }
   ],
+  "removals": [],
+  "cameraAction": { "spin": false, "stopSpin": false },
+  "animate": false
+}
+```
+
+### Composed single subject (anchors required)
+
+User prompt: "make a flower"
+Current scene: (empty)
+
+Note how `stem` is the root (no anchor). `petals` anchors above stem;
+`stamen` anchors on petals (sits flush on top). Leaves anchor to the
+left and right of the stem. Without anchors, the parts would land in
+a 5-cell grid all in the lower zone -- the petals would float to the
+right of the stem, not above it.
+
+```json
+{
+  "subject": "flower",
+  "stages": ["bloom"],
+  "mood": "default",
+  "cameraStyle": "wide",
+  "estimatedObjectCount": 5,
+  "objectSummary": [
+    { "label": "stem", "zone": "lower", "stage": "bloom" },
+    { "label": "leaf_left", "zone": "lower", "stage": "bloom",
+      "anchor": { "relativeTo": "stem", "placement": "left" } },
+    { "label": "leaf_right", "zone": "lower", "stage": "bloom",
+      "anchor": { "relativeTo": "stem", "placement": "right" } },
+    { "label": "petals", "zone": "upper", "stage": "bloom",
+      "anchor": { "relativeTo": "stem", "placement": "above" } },
+    { "label": "stamen", "zone": "upper", "stage": "bloom",
+      "anchor": { "relativeTo": "petals", "placement": "on" } }
+  ],
+  "updates": [],
   "removals": [],
   "cameraAction": { "spin": false, "stopSpin": false },
   "animate": false

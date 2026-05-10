@@ -30,12 +30,34 @@ CameraStyle = Literal["wide", "closeup", "orbit"]
 Zone = Literal["ground", "lower", "mid", "upper"]
 
 
+class AnchorSpec(BaseModel):
+    """Place this item relative to another item in the same brief.
+
+    The placement engine resolves `relativeTo` (a label, not a uuid) against
+    items appearing earlier in `objectSummary`. When unresolvable -- the
+    referenced label isn't in the brief, or it appears later -- the item
+    falls back to grid placement.
+
+    `offset` is added to the geometry-aware default clearance so the
+    Director can fine-tune ("petals just above the stem" vs "well above").
+    Units match scene units (meters in the y zones spanning -0.3..2.0).
+    """
+
+    relativeTo: str
+    placement: Literal["above", "below", "left", "right", "front", "back", "on"] = "above"
+    offset: float = 0.0
+
+
 class ObjectSummaryItem(BaseModel):
     """Spec for a NEW object the Director wants Asset to add."""
 
     label: str
     zone: Zone
     stage: str
+    # Optional spatial anchor against another label in the SAME brief. When
+    # absent, placement uses grid (multi-subject) or centered stacking
+    # (single-subject) heuristics. See agent/agents/placement.py.
+    anchor: AnchorSpec | None = None
 
 
 class BriefUpdate(BaseModel):
