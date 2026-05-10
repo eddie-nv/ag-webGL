@@ -54,6 +54,12 @@ export class SceneController {
     this.animationLoop = opts.animationLoop
   }
 
+  /** True when an object with this uuid currently lives in the scene. Used
+   * by the router to surface hallucinated-uuid Director output. */
+  hasObject(uuid: string): boolean {
+    return this.scene.getObjectByProperty('uuid', uuid) !== undefined
+  }
+
   addObject(payload: ObjectAddPayload): void {
     const mesh = ObjectFactory.create(payload)
     this.scene.add(mesh)

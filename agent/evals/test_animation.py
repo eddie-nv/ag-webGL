@@ -121,3 +121,34 @@ def test_run_animation_camera_spin_plus_object_rotate() -> None:
     assert uuids == {"camera", "u1", "u2"}
     assert "camera spinning" in result.narration
     assert "rotating 2 objects" in result.narration
+
+
+def test_run_animation_emits_camera_stop_when_action_set() -> None:
+    """`cameraAction.stopSpin: true` produces scene:animation_stop with
+    uuid='camera' so the AnimationLoop drops the orbit Tickable."""
+    store = SceneStore()
+    brief = _animated_brief(["only"], animate=False)
+    brief["cameraAction"] = {"spin": False, "stopSpin": True}
+    store.write_brief(brief)
+
+    result = run_animation(store)
+
+    stop_events = [e for e in result.events if e.name == "scene:animation_stop"]
+    assert len(stop_events) == 1
+    assert stop_events[0].value["uuid"] == "camera"
+    assert "camera stop" in result.narration
+
+
+def test_run_animation_camera_stop_then_start_in_one_brief() -> None:
+    """When both stopSpin and spin are true, stop comes BEFORE start so the
+    AnimationLoop sees a clean restart sequence."""
+    store = SceneStore()
+    brief = _animated_brief(["only"], animate=False)
+    brief["cameraAction"] = {"spin": True, "stopSpin": True}
+    store.write_brief(brief)
+
+    result = run_animation(store)
+
+    names = [e.name for e in result.events]
+    assert names == ["scene:animation_stop", "scene:animation_start"]
+    assert all(e.value["uuid"] == "camera" for e in result.events)

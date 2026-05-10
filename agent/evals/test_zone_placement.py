@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from agent.agents.asset import run_asset
+from agent.agents.asset import iter_asset_items, run_asset
 from agent.agents.placement import place_in_zone
 from agent.store.scene_store import ZONE_MAP, SceneStore
 
@@ -107,6 +107,65 @@ def test_asset_agent_with_empty_object_summary_emits_nothing() -> None:
     result = run_asset(store, llm)
     assert llm.invocations == 0
     assert result.events == []
+
+
+def test_run_asset_emits_animation_stop_for_object_update() -> None:
+    """Phase 5: an update entry with stopAnimation=True produces
+    scene:animation_stop for that uuid; a no-diff update doesn't emit a
+    redundant object_update."""
+    store = SceneStore()
+    store.write_object("u1", {"label": "cube"})
+    store.write_brief(
+        {
+            "subject": "x",
+            "stages": ["static"],
+            "mood": "default",
+            "cameraStyle": "wide",
+            "estimatedObjectCount": 0,
+            "objectSummary": [],
+            "updates": [{"uuid": "u1", "stopAnimation": True}],
+            "removals": [],
+            "cameraAction": None,
+            "animate": False,
+        }
+    )
+
+    result = run_asset(store, StubLLM(_asset_response()))
+
+    stop_events = [e for e in result.events if e.name == "scene:animation_stop"]
+    assert len(stop_events) == 1
+    assert stop_events[0].value["uuid"] == "u1"
+    update_events = [e for e in result.events if e.name == "scene:object_update"]
+    assert update_events == []
+    assert "stopped 1" in result.narration
+
+
+def test_run_asset_skips_unknown_uuids() -> None:
+    """Phase 5: Director hallucinated a uuid not in the snapshot. Asset
+    must not emit a CustomEvent for it; chat narration mentions it."""
+    store = SceneStore()
+    store.write_object("u1", {"label": "cube"})
+    store.write_brief(
+        {
+            "subject": "x",
+            "stages": ["static"],
+            "mood": "default",
+            "cameraStyle": "wide",
+            "estimatedObjectCount": 0,
+            "objectSummary": [],
+            "updates": [{"uuid": "ghost", "position": [1, 2, 3]}],
+            "removals": ["another-ghost"],
+            "cameraAction": None,
+            "animate": False,
+        }
+    )
+
+    items = list(iter_asset_items(store, StubLLM(_asset_response())))
+    narrations = [x for x in items if isinstance(x, str)]
+    events = [x for x in items if not isinstance(x, str)]
+
+    assert events == []
+    assert any("unknown uuid" in n for n in narrations)
 
 
 def test_asset_agent_positions_match_declared_zones() -> None:

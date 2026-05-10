@@ -62,6 +62,10 @@ export function routeSceneEvent(event: RawSceneEvent, ctx: RouterContext): void 
         return
       }
       const { uuid, ...updates } = parsed.data
+      if (!ctx.controller.hasObject(uuid)) {
+        sceneWarn(`agent referenced unknown uuid for ${event.name}:`, uuid)
+        return
+      }
       sceneLog('-> controller.updateObject', uuid, updates)
       ctx.controller.updateObject(uuid, updates)
       return
@@ -70,6 +74,10 @@ export function routeSceneEvent(event: RawSceneEvent, ctx: RouterContext): void 
       const parsed = ObjectRemoveSchema.safeParse(event.value)
       if (!parsed.success) {
         warn(event.name, parsed.error.message)
+        return
+      }
+      if (!ctx.controller.hasObject(parsed.data.uuid)) {
+        sceneWarn(`agent referenced unknown uuid for ${event.name}:`, parsed.data.uuid)
         return
       }
       sceneLog('-> controller.removeObject', parsed.data.uuid)
@@ -100,6 +108,12 @@ export function routeSceneEvent(event: RawSceneEvent, ctx: RouterContext): void 
       const parsed = AnimationStartSchema.safeParse(event.value)
       if (!parsed.success) {
         warn(event.name, parsed.error.message)
+        return
+      }
+      // 'camera' is the magic uuid for camera orbit; otherwise the target
+      // must exist as a real Object3D.
+      if (parsed.data.uuid !== 'camera' && !ctx.controller.hasObject(parsed.data.uuid)) {
+        sceneWarn(`agent referenced unknown uuid for ${event.name}:`, parsed.data.uuid)
         return
       }
       sceneLog('-> controller.startAnimation', parsed.data.uuid)

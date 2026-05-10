@@ -45,6 +45,10 @@ class BriefUpdate(BaseModel):
     it bigger", "color it red", etc. Asset emits one scene:object_update per
     entry. Frontend's SceneController.updateObject locates by uuid and
     applies the diff in place -- no copy is made.
+
+    `stopAnimation: True` makes Asset additionally emit a
+    scene:animation_stop for this uuid -- "stop spinning the cube" without
+    changing geometry/material.
     """
 
     uuid: str
@@ -52,16 +56,20 @@ class BriefUpdate(BaseModel):
     rotation: Vec3 | None = None
     scale: Vec3 | None = None
     color: str | None = None  # convenience -- material type stays the same
+    stopAnimation: bool = False
 
 
 class CameraAction(BaseModel):
     """Camera-level commands the Director can issue alongside object changes.
 
-    `spin: True` registers a camera-orbit Tickable on the AnimationLoop. Stops
-    only on explicit scene:animation_stop with uuid="camera" (or full reload).
+    `spin: True` registers a camera-orbit Tickable on the AnimationLoop.
+    `stopSpin: True` emits scene:animation_stop with uuid="camera" so the
+    AnimationLoop drops the orbit Tickable. Setting both at once is treated
+    as stop-then-start (Asset emits stop first, animator emits start after).
     """
 
     spin: bool = False
+    stopSpin: bool = False
 
 
 class Brief(BaseModel):

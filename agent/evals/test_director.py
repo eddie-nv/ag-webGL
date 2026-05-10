@@ -111,3 +111,28 @@ def test_brief_round_trips_animate_true() -> None:
     payload = {**_valid_brief_dict(), "animate": True}
     brief = Brief.model_validate(payload)
     assert brief.animate is True
+
+
+def test_brief_parses_camera_stop_spin() -> None:
+    """Phase 5: cameraAction.stopSpin defaults to False, accepts True."""
+    payload = {
+        **_valid_brief_dict(),
+        "cameraAction": {"spin": False, "stopSpin": True},
+    }
+    brief = Brief.model_validate(payload)
+    assert brief.cameraAction is not None
+    assert brief.cameraAction.stopSpin is True
+
+
+def test_brief_parses_update_stop_animation() -> None:
+    """Phase 5: updates[].stopAnimation defaults to False, accepts True."""
+    payload = {
+        **_valid_brief_dict(),
+        "updates": [
+            {"uuid": "fake-uuid", "stopAnimation": True},
+            {"uuid": "another", "position": [1, 2, 3]},  # default false
+        ],
+    }
+    brief = Brief.model_validate(payload)
+    assert brief.updates[0].stopAnimation is True
+    assert brief.updates[1].stopAnimation is False

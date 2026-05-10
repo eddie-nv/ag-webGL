@@ -17,9 +17,9 @@ Per-object animation selection (grow / drift / oscillate) is v2.
 from __future__ import annotations
 
 from agent.agents.types import AgentResult, Brief
-from agent.events.scene_events import make_animation_start
+from agent.events.scene_events import make_animation_start, make_animation_stop
 from agent.store.scene_store import SceneStore
-from shared.schema.sceneSchema import AnimationStartPayload
+from shared.schema.sceneSchema import AnimationStartPayload, AnimationStopPayload
 
 DEFAULT_ROTATION_DURATION = 6.0
 CAMERA_ORBIT_DURATION = 12.0
@@ -34,6 +34,12 @@ def run_animation(store: SceneStore) -> AgentResult:
     brief = Brief.model_validate(raw)
     events = []
     parts: list[str] = []
+
+    # Camera stop has to come BEFORE start so a "stop then re-spin" prompt
+    # produces a clean restart on the AnimationLoop.
+    if brief.cameraAction and brief.cameraAction.stopSpin:
+        events.append(make_animation_stop(AnimationStopPayload(uuid=CAMERA_UUID)))
+        parts.append("camera stop")
 
     # Camera spin (independent of object animation)
     if brief.cameraAction and brief.cameraAction.spin:

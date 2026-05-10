@@ -34,11 +34,12 @@ end with `}`.
       "position": [x, y, z],
       "rotation": [rx, ry, rz],
       "scale": [sx, sy, sz],
-      "color": "#rrggbb"
+      "color": "#rrggbb",
+      "stopAnimation": false
     }
   ],
   "removals": ["uuid1", "uuid2"],
-  "cameraAction": { "spin": false },
+  "cameraAction": { "spin": false, "stopSpin": false },
   "animate": false
 }
 ```
@@ -46,6 +47,12 @@ end with `}`.
 All fields are required EXCEPT individual `updates[]` fields (each is
 optional inside an update entry) and `cameraAction` (omit if no camera
 command).
+
+Use `cameraAction.stopSpin: true` for "stop the camera", "freeze the view",
+"halt the rotation". Use `updates[].stopAnimation: true` for "stop
+spinning the cube" -- you can pair it with position/rotation/scale/color
+on the same entry, or set `stopAnimation` alone (Asset will not emit a
+no-op object_update if no other diff fields are set).
 
 ## Zones (y axis only in v1)
 
@@ -155,7 +162,51 @@ Current scene:
   "objectSummary": [],
   "updates": [],
   "removals": [],
-  "cameraAction": { "spin": true },
+  "cameraAction": { "spin": true, "stopSpin": false },
+  "animate": false
+}
+```
+
+### Stop the camera spin
+
+User prompt: "stop the camera" / "freeze the view" / "halt the rotation"
+Current scene:
+  - 7e1c4f8a-...: cube
+
+```json
+{
+  "subject": "blue_cube",
+  "stages": ["static"],
+  "mood": "default",
+  "cameraStyle": "wide",
+  "estimatedObjectCount": 0,
+  "objectSummary": [],
+  "updates": [],
+  "removals": [],
+  "cameraAction": { "spin": false, "stopSpin": true },
+  "animate": false
+}
+```
+
+### Stop spinning a specific object
+
+User prompt: "stop spinning the cube"
+Current scene:
+  - 7e1c4f8a-...: cube
+
+```json
+{
+  "subject": "blue_cube",
+  "stages": ["static"],
+  "mood": "default",
+  "cameraStyle": "wide",
+  "estimatedObjectCount": 0,
+  "objectSummary": [],
+  "updates": [
+    { "uuid": "7e1c4f8a-...", "stopAnimation": true }
+  ],
+  "removals": [],
+  "cameraAction": { "spin": false, "stopSpin": false },
   "animate": false
 }
 ```
